@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Text;
 
@@ -68,7 +68,8 @@ namespace AsarSharp
         {
 
             uint readPayloadOffset = GetReadPayloadOffsetAndAdvance(length);
-            if (method != null) return method(readPayloadOffset);
+            if (method != null)
+                return method(readPayloadOffset);
 
             return Encoding.UTF8.GetString(Payload.Skip((int)readPayloadOffset).Take((int)length).ToArray());
         }

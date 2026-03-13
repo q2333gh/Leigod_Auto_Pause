@@ -1,4 +1,4 @@
-﻿namespace AsarSharp.Utils
+namespace AsarSharp.Utils
 {
     /**
      * Various types used within the library.

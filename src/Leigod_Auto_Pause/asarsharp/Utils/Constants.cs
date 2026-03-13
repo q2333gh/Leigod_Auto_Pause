@@ -1,4 +1,4 @@
-﻿
+
 namespace AsarSharp.Utils
 {
     class Constants

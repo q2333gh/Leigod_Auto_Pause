@@ -13,7 +13,8 @@ public class SelfInstallerTests
         var installer = new SelfInstaller(
             copyFile: (source, target, overwrite) => copied.Add((source, target)),
             ensureDirectory: _ => { },
-            shortcutService: new FakeShortcutService((shortcut, target) => shortcuts.Add((shortcut, target))));
+            shortcutService: new FakeShortcutService((shortcut, target) => shortcuts.Add((shortcut, target))),
+            fileExists: path => path is @"D:\Leigod\resources\app.asar" or @"D:\Leigod\leigod_launcher.exe");
 
         installer.Install(
             sourceExePath: @"C:\Users\me\Downloads\Leigod_Auto_Pause.exe",
@@ -22,6 +23,17 @@ public class SelfInstallerTests
 
         Assert.Contains(copied, x => x.Target == @"D:\Leigod\Leigod_Auto_Pause.exe");
         Assert.Contains(shortcuts, x => x.ShortcutPath == @"C:\Users\me\Desktop\雷神自动暂停.lnk");
+    }
+
+    [Fact]
+    public void Install_WhenTargetDirectoryIsUnsafe_Throws()
+    {
+        var installer = new SelfInstaller(fileExists: _ => false);
+
+        Assert.Throws<InvalidOperationException>(() => installer.Install(
+            sourceExePath: @"C:\Users\me\Downloads\Leigod_Auto_Pause.exe",
+            targetDirectory: @"C:\Users\me\Desktop",
+            desktopDirectory: @"C:\Users\me\Desktop"));
     }
 
     private sealed class FakeShortcutService(Action<string, string> onCreate) : IShortcutService

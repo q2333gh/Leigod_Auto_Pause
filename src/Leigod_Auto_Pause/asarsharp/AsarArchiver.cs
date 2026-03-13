@@ -1,13 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
-
-using Newtonsoft.Json;
 using DotNet.Globbing;
-
-using static AsarSharp.Utils.Types;
+using Newtonsoft.Json;
 using static AsarSharp.Utils.Constants;
 using static AsarSharp.Utils.Methods;
+using static AsarSharp.Utils.Types;
 
 namespace AsarSharp
 {
@@ -56,8 +54,10 @@ namespace AsarSharp
          */
         public AsarArchiver(string directoryPath, string archivePath)
         {
-            if (!archivePath.EndsWith(".asar")) throw new FormatException(AsarExceptions.invalidArchiveFilePath);
-            if (!Directory.Exists(directoryPath)) throw new DirectoryNotFoundException(AsarExceptions.archiveDirectoryMissing);
+            if (!archivePath.EndsWith(".asar"))
+                throw new FormatException(AsarExceptions.invalidArchiveFilePath);
+            if (!Directory.Exists(directoryPath))
+                throw new DirectoryNotFoundException(AsarExceptions.archiveDirectoryMissing);
 
             _directoryPath = directoryPath;
             _archivePath = archivePath;
@@ -73,7 +73,8 @@ namespace AsarSharp
          */
         public void Archive(ArchivingOptions archivingOptions = null)
         {
-            if (archivingOptions != null) HandleArchivingOptions(ref archivingOptions);
+            if (archivingOptions != null)
+                HandleArchivingOptions(ref archivingOptions);
 
             DebugLog(GetStep(ArchivingStep.TemporaryFileCreation));
             _tempArchiveFileStream = CreateArchiveDataTempFile();
@@ -246,7 +247,8 @@ namespace AsarSharp
                 currentFileData.Add("unpacked", true);
                 AddFileToUnpackedDirectory(currentFilePath);
             }
-            if (IsFileExecutable(currentFilePath)) currentFileData.Add("executable", true);
+            if (IsFileExecutable(currentFilePath))
+                currentFileData.Add("executable", true);
 
             currentBranch.Add(currentFileName, currentFileData);
         }
@@ -294,7 +296,8 @@ namespace AsarSharp
 
         private void Dispose(bool isCalledFromDispose)
         {
-            if (_isDisposed) return;
+            if (_isDisposed)
+                return;
 
             if (isCalledFromDispose)
             {

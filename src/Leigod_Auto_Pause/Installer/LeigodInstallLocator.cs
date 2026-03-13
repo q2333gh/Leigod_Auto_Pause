@@ -24,9 +24,9 @@ public sealed class LeigodInstallLocator
     public LeigodInstallCandidate? LocateBestCandidate()
     {
         return EnumerateScoredDirectories()
-            .GroupBy(path => Normalize(path.DirectoryPath), StringComparer.OrdinalIgnoreCase)
+            .GroupBy(path => InstallDirectorySafety.NormalizeDirectoryPath(path.DirectoryPath), StringComparer.OrdinalIgnoreCase)
             .Select(group => new LeigodInstallCandidate(group.Key, group.Max(x => x.Score)))
-            .Where(candidate => IsValidLeigodDirectory(candidate.DirectoryPath))
+            .Where(candidate => InstallDirectorySafety.IsSafeInstallDirectory(candidate.DirectoryPath, _fileExists))
             .OrderByDescending(candidate => candidate.Score)
             .FirstOrDefault();
     }
@@ -56,12 +56,6 @@ public sealed class LeigodInstallLocator
                 yield return new LeigodInstallCandidate(path, 60);
             }
         }
-    }
-
-    private bool IsValidLeigodDirectory(string directoryPath)
-    {
-        return _fileExists(Path.Combine(directoryPath, "resources", "app.asar")) &&
-               _fileExists(Path.Combine(directoryPath, "leigod_launcher.exe"));
     }
 
     private static IEnumerable<string> GetRunningProcessDirectories()
@@ -117,11 +111,5 @@ public sealed class LeigodInstallLocator
                 yield return Path.Combine(root, child);
             }
         }
-    }
-
-    private static string Normalize(string path)
-    {
-        return Path.GetFullPath(path)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 }

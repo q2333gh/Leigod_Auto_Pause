@@ -8,22 +8,26 @@ public sealed class SelfInstaller
     private readonly Action<string, string, bool> _copyFile;
     private readonly Action<string> _ensureDirectory;
     private readonly IShortcutService _shortcutService;
+    private readonly Func<string, bool> _fileExists;
 
     public SelfInstaller(
         Action<string, string, bool>? copyFile = null,
         Action<string>? ensureDirectory = null,
-        IShortcutService? shortcutService = null)
+        IShortcutService? shortcutService = null,
+        Func<string, bool>? fileExists = null)
     {
         _copyFile = copyFile ?? File.Copy;
         _ensureDirectory = ensureDirectory ?? (path => Directory.CreateDirectory(path));
         _shortcutService = shortcutService ?? new DesktopShortcutService();
+        _fileExists = fileExists ?? File.Exists;
     }
 
     public string Install(string sourceExePath, string targetDirectory, string desktopDirectory)
     {
-        _ensureDirectory(targetDirectory);
+        var normalizedTargetDirectory = InstallDirectorySafety.EnsureSafeInstallDirectory(targetDirectory, _fileExists);
+        _ensureDirectory(normalizedTargetDirectory);
 
-        var installedExePath = Path.Combine(targetDirectory, InstalledFileName);
+        var installedExePath = Path.Combine(normalizedTargetDirectory, InstalledFileName);
         if (!string.Equals(
                 Path.GetFullPath(sourceExePath),
                 Path.GetFullPath(installedExePath),
@@ -32,8 +36,8 @@ public sealed class SelfInstaller
             _copyFile(sourceExePath, installedExePath, true);
         }
 
-        var shortcutPath = Path.Combine(desktopDirectory, ShortcutFileName);
-        _shortcutService.CreateOrUpdate(shortcutPath, installedExePath, targetDirectory, string.Empty, installedExePath);
+        var shortcutPath = Path.Combine(Path.GetFullPath(desktopDirectory), ShortcutFileName);
+        _shortcutService.CreateOrUpdate(shortcutPath, installedExePath, normalizedTargetDirectory, string.Empty, installedExePath);
         return installedExePath;
     }
 }

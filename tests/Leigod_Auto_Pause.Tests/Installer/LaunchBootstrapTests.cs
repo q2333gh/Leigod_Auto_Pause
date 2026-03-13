@@ -27,7 +27,7 @@ public class LaunchBootstrapTests : IDisposable
     [Fact]
     public void Decide_WhenOutsideLeigodDirectory_ReturnsInstallAndRelaunch()
     {
-        var bootstrap = new LaunchBootstrap();
+        var bootstrap = new LaunchBootstrap(fileExists: path => path is @"D:\Leigod\resources\app.asar" or @"D:\Leigod\leigod_launcher.exe");
         var result = bootstrap.Decide(
             executablePath: @"C:\Users\me\Downloads\Leigod_Auto_Pause.exe",
             currentDirectory: @"C:\Users\me\Downloads",
@@ -38,6 +38,28 @@ public class LaunchBootstrapTests : IDisposable
 
         Assert.Equal(BootstrapAction.InstallAndRelaunch, result.Action);
         Assert.Equal(@"D:\Leigod\Leigod_Auto_Pause.exe", result.InstalledExecutablePath);
+    }
+
+    [Fact]
+    public void Decide_WhenTopCandidatesAreAmbiguous_Aborts()
+    {
+        var bootstrap = new LaunchBootstrap(fileExists: path =>
+            path is @"D:\LeigodA\resources\app.asar" or
+            @"D:\LeigodA\leigod_launcher.exe" or
+            @"E:\LeigodB\resources\app.asar" or
+            @"E:\LeigodB\leigod_launcher.exe");
+
+        var result = bootstrap.Decide(
+            executablePath: @"C:\Users\me\Downloads\Leigod_Auto_Pause.exe",
+            currentDirectory: @"C:\Users\me\Downloads",
+            candidates:
+            [
+                new LeigodInstallCandidate(@"D:\LeigodA", 100),
+                new LeigodInstallCandidate(@"E:\LeigodB", 100)
+            ]);
+
+        Assert.Equal(BootstrapAction.Abort, result.Action);
+        Assert.Contains("多个", result.ErrorMessage);
     }
 
     public void Dispose()

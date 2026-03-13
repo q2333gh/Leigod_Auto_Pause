@@ -20,3 +20,5 @@ artifacts/
 temp.md
 
 temp/
+
+node_modules/

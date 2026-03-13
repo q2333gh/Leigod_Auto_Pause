@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
@@ -25,7 +25,8 @@ namespace SettingManager
         public static AppSettings? Load()
         {
 
-            if (!File.Exists(_settingsFilePath)) return null;
+            if (!File.Exists(_settingsFilePath))
+                return null;
 
             //读取配置文件内容
             string json = File.ReadAllText(_settingsFilePath);

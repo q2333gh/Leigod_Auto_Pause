@@ -1,9 +1,7 @@
-﻿using System;
-using System.IO;
+using System;
 using System.Collections.Generic;
-
+using System.IO;
 using Newtonsoft.Json;
-
 using static AsarSharp.Utils.Constants;
 using static AsarSharp.Utils.Methods;
 
@@ -37,11 +35,13 @@ namespace AsarSharp
          */
         public AsarExtractor(string archiveFilePath, string extractInto)
         {
-            if (!archiveFilePath.EndsWith(".asar")) throw new FormatException(AsarExceptions.invalidArchiveFilePath);
-            if (!File.Exists(archiveFilePath)) throw new FileNotFoundException(AsarExceptions.archiveFileMissing);
+            if (!archiveFilePath.EndsWith(".asar"))
+                throw new FormatException(AsarExceptions.invalidArchiveFilePath);
+            if (!File.Exists(archiveFilePath))
+                throw new FileNotFoundException(AsarExceptions.archiveFileMissing);
 
             _archiveFilePath = archiveFilePath;
-            _pathToExtractDirectory = extractInto;
+            _pathToExtractDirectory = ArchivePathSafety.NormalizeDirectoryPath(extractInto);
         }
 
         /**
@@ -100,10 +100,12 @@ namespace AsarSharp
          */
         private void UnpackArchive(ref dynamic currentBranch, string currentPath = "")
         {
+            currentPath = ArchivePathSafety.EnsurePathWithinRoot(_pathToExtractDirectory, currentPath);
+
             bool isSymlink = currentBranch?.link != null;
             if (isSymlink)
             {
-                string symlinkTargetPath = Path.Combine(_pathToExtractDirectory, (string)currentBranch.link);
+                string symlinkTargetPath = ArchivePathSafety.CombineWithinRoot(_pathToExtractDirectory, (string)currentBranch.link);
                 _symlinks.Enqueue(
                     (symlinkPath: currentPath, symlinkTargetPath)
                 );
@@ -124,7 +126,12 @@ namespace AsarSharp
             var directoryContents = currentBranch.files.Properties();
 
             foreach (var fileOrDirectory in directoryContents)
-                UnpackArchive(currentBranch: ref fileOrDirectory.Value, currentPath: Path.Combine(currentPath, fileOrDirectory.Name));
+            {
+                var childPath = ArchivePathSafety.EnsurePathWithinRoot(
+                    _pathToExtractDirectory,
+                    Path.Combine(currentPath, fileOrDirectory.Name));
+                UnpackArchive(currentBranch: ref fileOrDirectory.Value, currentPath: childPath);
+            }
         }
 
         /**
@@ -139,6 +146,8 @@ namespace AsarSharp
             while (_symlinks.Count > 0)
             {
                 var (symlinkPath, symlinkTargetPath) = _symlinks.Dequeue();
+                symlinkPath = ArchivePathSafety.EnsurePathWithinRoot(_pathToExtractDirectory, symlinkPath);
+                symlinkTargetPath = ArchivePathSafety.EnsurePathWithinRoot(_pathToExtractDirectory, symlinkTargetPath);
                 bool isSymlinkTargetADirectory = File.GetAttributes(symlinkTargetPath).HasFlag(FileAttributes.Directory);
 
                 if (!isSymlinkTargetADirectory)
@@ -157,6 +166,8 @@ namespace AsarSharp
          */
         private void CreateFileFromArchive(ref dynamic currentBranch, string currentPath)
         {
+            currentPath = ArchivePathSafety.EnsurePathWithinRoot(_pathToExtractDirectory, currentPath);
+
             if (currentBranch?.unpacked != null && currentBranch?.unpacked.Value == true)
             {
                 if (_unpackedDirectoryPath == null)
@@ -165,7 +176,7 @@ namespace AsarSharp
                     if (!Directory.Exists(unpackedDirectoryPath))
                         throw new DirectoryNotFoundException(AsarExceptions.unpackedDirectoryMissing);
                     else
-                        _unpackedDirectoryPath = unpackedDirectoryPath;
+                        _unpackedDirectoryPath = ArchivePathSafety.NormalizeDirectoryPath(unpackedDirectoryPath);
                 }
 
                 // The {archiveName.asar.unpacked} directory contains files with parallel paths to the files 
@@ -173,7 +184,8 @@ namespace AsarSharp
                 // archiveExtractionTargetDirectory/path/to/file
                 // {archiveName.asar.unpacked}/path/to/file
                 // So we just replace, in the path, the first parent directory with the second.
-                string filePathInUnpackedDirectory = Path.Join(_unpackedDirectoryPath, currentPath.Substring(_pathToExtractDirectory.Length + 1));
+                string relativePath = currentPath.Substring(_pathToExtractDirectory.Length + 1);
+                string filePathInUnpackedDirectory = ArchivePathSafety.CombineWithinRoot(_unpackedDirectoryPath, relativePath);
                 File.Copy(filePathInUnpackedDirectory, currentPath, overwrite: true);
 
                 return;
@@ -185,12 +197,14 @@ namespace AsarSharp
 
             using (FileStream fileStream = File.Create(currentPath, bufferSize: currentFileSize))
             {
-                if (currentBranch.size == 0) return;
+                if (currentBranch.size == 0)
+                    return;
 
                 byte[] fileDataBuffer = new byte[currentFileSize];
 
                 bool hasConvertedFileOffset = uint.TryParse(currentBranch.offset.ToString(), out currentFileOffset);
-                if (!hasConvertedFileOffset) throw new FormatException(AsarExceptions.failedTypeConversion);
+                if (!hasConvertedFileOffset)
+                    throw new FormatException(AsarExceptions.failedTypeConversion);
 
                 uint bytesToSkipForFileRead = HeaderSizePickleObjectSize + _headerSize + currentFileOffset;
 
@@ -223,7 +237,8 @@ namespace AsarSharp
             byte[] headerSizeBuffer = new byte[8];
             {
                 int firstBytesReadCount = _archiveFileStream.Read(headerSizeBuffer, offset: 0, count: 8);
-                if (firstBytesReadCount != 8) throw new InvalidDataException(AsarExceptions.insufficientHeaderBytes);
+                if (firstBytesReadCount != 8)
+                    throw new InvalidDataException(AsarExceptions.insufficientHeaderBytes);
             }
 
 
@@ -233,7 +248,8 @@ namespace AsarSharp
             {
 
                 int bytesOfHeader = _archiveFileStream.Read(headerJsonStringBuffer, offset: 0, count: (int)headerJsonStringSize);
-                if (bytesOfHeader != headerJsonStringSize) throw new InvalidDataException(AsarExceptions.insufficientHeaderBytes);
+                if (bytesOfHeader != headerJsonStringSize)
+                    throw new InvalidDataException(AsarExceptions.insufficientHeaderBytes);
             }
 
             headerJsonString = new Pickle(buffer: headerJsonStringBuffer).CreateIterator().ReadString();
@@ -253,7 +269,8 @@ namespace AsarSharp
 
         private void Dispose(bool isCalledFromDispose)
         {
-            if (_isDisposed) return;
+            if (_isDisposed)
+                return;
 
             if (isCalledFromDispose)
             {

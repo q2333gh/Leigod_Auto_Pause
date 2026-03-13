@@ -1,12 +1,12 @@
-﻿// THIS IS A C# PICKLE PORT FROM JAVASCRIPT. ALL RIGHTS GO TO THE CHROMIUM AUTHORS.
+// THIS IS A C# PICKLE PORT FROM JAVASCRIPT. ALL RIGHTS GO TO THE CHROMIUM AUTHORS.
 // https://github.com/electron/node-chromium-pickle-js
 
 // ********************************************************************************
 
 using System;
-using System.Text;
-using System.Linq;
 using System.Buffers;
+using System.Linq;
+using System.Text;
 
 namespace AsarSharp
 {
@@ -53,10 +53,13 @@ namespace AsarSharp
             CapacityAfterHeader = PickleUtils.CAPACITY_READ_ONLY;
             WriteOffset = 0;
 
-            if (HeaderSize > buffer.Length) HeaderSize = 0;
-            if (HeaderSize != PickleUtils.AlignInt(HeaderSize, PickleUtils.SIZE_UINT32)) HeaderSize = 0;
+            if (HeaderSize > buffer.Length)
+                HeaderSize = 0;
+            if (HeaderSize != PickleUtils.AlignInt(HeaderSize, PickleUtils.SIZE_UINT32))
+                HeaderSize = 0;
 
-            if (HeaderSize == 0) Header = Array.Empty<byte>();
+            if (HeaderSize == 0)
+                Header = Array.Empty<byte>();
 
         }
 
@@ -123,7 +126,8 @@ namespace AsarSharp
             int byteLength = Encoding.UTF8.GetBytes(value).Length;
 
             bool wroteSuccessfully = WriteInt(byteLength);
-            if (!wroteSuccessfully) return false;
+            if (!wroteSuccessfully)
+                return false;
 
             return WriteBytes(value, (uint)byteLength);
         }
@@ -149,7 +153,8 @@ namespace AsarSharp
             if (newSize > CapacityAfterHeader)
                 Resize((uint)Math.Max(CapacityAfterHeader * 2, newSize));
 
-            if (writeMethod != null) writeMethod(data, writeOffset);
+            if (writeMethod != null)
+                writeMethod(data, writeOffset);
             else
             {
                 // Buffer.BlockCopy doesn't accept strings, only char[]s

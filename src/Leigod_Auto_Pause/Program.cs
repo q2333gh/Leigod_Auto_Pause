@@ -1,8 +1,8 @@
+using System.Diagnostics;
+using System.Security.Principal;
 using AsarSharp;
 using Leigod_Auto_Pause.Installer;
 using SettingManager;
-using System.Diagnostics;
-using System.Security.Principal;
 
 class Program
 {
@@ -24,7 +24,7 @@ class Program
         {
             var bootstrapArgs = BootstrapArguments.Parse(args);
             var currentExePath = Environment.ProcessPath ?? throw new InvalidOperationException("无法获取当前可执行文件路径。");
-            var currentDirectory = NormalizeDirectoryPath(AppContext.BaseDirectory);
+            var currentDirectory = InstallDirectorySafety.NormalizeDirectoryPath(AppContext.BaseDirectory);
 
             if (bootstrapArgs.InstallDirectory is not null)
             {
@@ -71,26 +71,38 @@ class Program
 
     private static async Task StartInstallFlowAsync(string sourceExePath, string installDirectory)
     {
-        if (IsRunningAsAdmin())
+        if (!InstallDirectorySafety.TryValidateInstallDirectory(installDirectory, null, out var normalizedInstallDirectory, out var errorMessage))
         {
-            await HandleElevatedInstallAsync(sourceExePath, installDirectory);
+            ShowError(errorMessage, "安装失败");
             return;
         }
 
-        RelaunchSelfWithArguments([BootstrapArguments.PerformInstallFlag, installDirectory], runAsAdmin: true);
+        if (IsRunningAsAdmin())
+        {
+            await HandleElevatedInstallAsync(sourceExePath, normalizedInstallDirectory);
+            return;
+        }
+
+        RelaunchSelfWithArguments([BootstrapArguments.PerformInstallFlag, normalizedInstallDirectory], runAsAdmin: true);
     }
 
     private static async Task HandleElevatedInstallAsync(string sourceExePath, string installDirectory)
     {
+        if (!InstallDirectorySafety.TryValidateInstallDirectory(installDirectory, null, out var normalizedInstallDirectory, out var errorMessage))
+        {
+            ShowError(errorMessage, "安装失败");
+            return;
+        }
+
         if (!IsRunningAsAdmin())
         {
-            RelaunchSelfWithArguments([BootstrapArguments.PerformInstallFlag, installDirectory], runAsAdmin: true);
+            RelaunchSelfWithArguments([BootstrapArguments.PerformInstallFlag, normalizedInstallDirectory], runAsAdmin: true);
             return;
         }
 
         var installer = new SelfInstaller();
         var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        var installedExePath = installer.Install(sourceExePath, installDirectory, desktopDirectory);
+        var installedExePath = installer.Install(sourceExePath, normalizedInstallDirectory, desktopDirectory);
 
         RelaunchExecutable(installedExePath, [BootstrapArguments.InstalledLaunchFlag], runAsAdmin: true);
         await Task.CompletedTask;
@@ -98,7 +110,13 @@ class Program
 
     private static async Task RunPatchAndLaunchAsync(string currentDirectory)
     {
-        var asarPath = Path.Combine(currentDirectory, "resources", "app.asar");
+        if (!InstallDirectorySafety.TryValidateInstallDirectory(currentDirectory, null, out var normalizedCurrentDirectory, out var errorMessage))
+        {
+            ShowError(errorMessage, "启动失败");
+            return;
+        }
+
+        var asarPath = Path.Combine(normalizedCurrentDirectory, "resources", "app.asar");
 
         if (await NeedUpdate(asarPath))
         {
@@ -109,7 +127,7 @@ class Program
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("正在试图启动雷神加速器...");
-                LaunchLeigod(currentDirectory);
+                LaunchLeigod(normalizedCurrentDirectory);
             }
             else
             {
@@ -123,7 +141,7 @@ class Program
             return;
         }
 
-        LaunchLeigod(currentDirectory);
+        LaunchLeigod(normalizedCurrentDirectory);
     }
 
     public static async Task<bool> ApplyPatch(string asarPath)
@@ -318,12 +336,6 @@ class Program
         }
 
         return $"\"{arg.Replace("\"", "\\\"")}\"";
-    }
-
-    private static string NormalizeDirectoryPath(string path)
-    {
-        return Path.GetFullPath(path)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
     private static void ShowError(string message, string caption)
