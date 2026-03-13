@@ -37,7 +37,20 @@ public sealed class SelfInstaller
         }
 
         var shortcutPath = Path.Combine(Path.GetFullPath(desktopDirectory), ShortcutFileName);
-        _shortcutService.CreateOrUpdate(shortcutPath, installedExePath, normalizedTargetDirectory, string.Empty, installedExePath);
+        TryCreateShortcut(shortcutPath, installedExePath, normalizedTargetDirectory);
         return installedExePath;
+    }
+
+    private void TryCreateShortcut(string shortcutPath, string installedExePath, string normalizedTargetDirectory)
+    {
+        try
+        {
+            _shortcutService.CreateOrUpdate(shortcutPath, installedExePath, normalizedTargetDirectory, string.Empty, installedExePath);
+        }
+        catch
+        {
+            // Shortcut creation is a convenience step. Installation should still succeed
+            // even when the user's desktop path is redirected or temporarily unavailable.
+        }
     }
 }

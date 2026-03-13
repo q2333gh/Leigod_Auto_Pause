@@ -6,6 +6,8 @@ using SettingManager;
 
 class Program
 {
+    private const string TempPatchDirectoryPrefix = "AsarPatcher_";
+
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern bool AllocConsole();
 
@@ -158,7 +160,8 @@ class Program
 
             Console.WriteLine("找到文件 app.asar ！");
 
-            tempDir = Path.Combine(Path.GetTempPath(), "AsarPatcher_" + Path.GetRandomFileName());
+            tempDir = Path.Combine(Path.GetTempPath(), TempPatchDirectoryPrefix + Path.GetRandomFileName());
+            tempDir = ArchivePathSafety.EnsurePathWithinRoot(Path.GetTempPath(), tempDir);
             Directory.CreateDirectory(tempDir);
             Console.WriteLine("正在解压 app.asar 文件...");
 
@@ -216,11 +219,7 @@ class Program
         }
         finally
         {
-            if (tempDir is not null && Directory.Exists(tempDir))
-            {
-                Directory.Delete(tempDir, true);
-                Console.WriteLine("清理目录");
-            }
+            TryDeleteSafeTempDirectory(tempDir);
         }
 
         return true;
@@ -336,6 +335,32 @@ class Program
         }
 
         return $"\"{arg.Replace("\"", "\\\"")}\"";
+    }
+
+    private static void TryDeleteSafeTempDirectory(string? tempDir)
+    {
+        if (string.IsNullOrWhiteSpace(tempDir) || !Directory.Exists(tempDir))
+        {
+            return;
+        }
+
+        try
+        {
+            var validatedTempDirectory = ArchivePathSafety.EnsurePathWithinRoot(Path.GetTempPath(), tempDir);
+            var directoryName = Path.GetFileName(validatedTempDirectory);
+            if (!directoryName.StartsWith(TempPatchDirectoryPrefix, StringComparison.Ordinal))
+            {
+                Console.WriteLine($"跳过清理未知临时目录: {validatedTempDirectory}");
+                return;
+            }
+
+            Directory.Delete(validatedTempDirectory, true);
+            Console.WriteLine("清理目录");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"跳过不安全的临时目录清理: {ex.Message}");
+        }
     }
 
     private static void ShowError(string message, string caption)
